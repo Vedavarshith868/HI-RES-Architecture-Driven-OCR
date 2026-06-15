@@ -1,0 +1,31 @@
+# Model weights — auto-downloaded from the Hugging Face Hub at runtime (do NOT commit; ~2 GB)
+local_trocr_model/
+*.safetensors
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Generated OCR outputs / eval artifacts
+*_overlay.png
+*_panel.png
+*_ocr.txt
+_preview_*
+eval_results.csv
+gnhk_results.csv
+**/e2e_overlay.png
+
+# Datasets / archives
+*.zip
+gnhk/
+eval_data/
+
+# OS / editor
+.DS_Store
+.ipynb_checkpoints/
+.idea/
+.vscode/

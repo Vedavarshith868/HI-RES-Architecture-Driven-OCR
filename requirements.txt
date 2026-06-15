@@ -1,0 +1,22 @@
+# Recognition (TrOCR)
+torch>=2.2
+transformers>=4.45  # verified working on 5.12
+safetensors>=0.4
+
+# Detection — PaddleOCR 3.x API (TextDetection); 2.x does NOT have this API
+paddleocr>=3.0,<4
+paddlepaddle>=3.0
+
+# Imaging / geometry
+numpy>=1.26
+opencv-python-headless>=4.8
+Pillow>=10
+
+# UI
+gradio>=4
+
+# Evaluation only (optional): public datasets for evaluate.py --hf
+datasets>=2.18
+
+# HF Spaces ZeroGPU decorator (no-op locally; app guards the import)
+spaces; sys_platform == "linux"

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 380" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1120" height="380" rx="16" fill="#ffffff"/>
+  <text x="560" y="40" text-anchor="middle" font-size="24" font-weight="700" fill="#111827">Architecture-Driven Full-Page Handwriting OCR</text>
+  <text x="560" y="68" text-anchor="middle" font-size="15" fill="#6b7280">A single-line recognizer turned into a full-page system via a deterministic reading-order stage</text>
+
+  <!-- Stage boxes -->
+  <!-- 1 input -->
+  <rect x="30" y="120" width="175" height="110" rx="12" fill="#eef2f7" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="117" y="160" text-anchor="middle" font-size="17" font-weight="700" fill="#1f2937">Input</text>
+  <text x="117" y="184" text-anchor="middle" font-size="13" fill="#475569">full-page</text>
+  <text x="117" y="202" text-anchor="middle" font-size="13" fill="#475569">handwriting photo</text>
+
+  <!-- 2 detection -->
+  <rect x="245" y="120" width="175" height="110" rx="12" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="332" y="158" text-anchor="middle" font-size="17" font-weight="700" fill="#1e3a8a">Detection</text>
+  <text x="332" y="182" text-anchor="middle" font-size="13" fill="#1e40af">PaddleOCR PP-OCRv5</text>
+  <text x="332" y="200" text-anchor="middle" font-size="13" fill="#1e40af">→ word/line boxes</text>
+
+  <!-- 3 reading-order (core contribution) -->
+  <rect x="460" y="120" width="200" height="110" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2.5"/>
+  <text x="560" y="156" text-anchor="middle" font-size="17" font-weight="700" fill="#14532d">Reading-Order</text>
+  <text x="560" y="178" text-anchor="middle" font-size="17" font-weight="700" fill="#14532d">Reconstruction</text>
+  <text x="560" y="200" text-anchor="middle" font-size="12.5" fill="#15803d">custom geometry module</text>
+
+  <!-- 4 recognition -->
+  <rect x="700" y="120" width="175" height="110" rx="12" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="787" y="158" text-anchor="middle" font-size="17" font-weight="700" fill="#1e3a8a">Recognition</text>
+  <text x="787" y="182" text-anchor="middle" font-size="13" fill="#1e40af">TrOCR-large</text>
+  <text x="787" y="200" text-anchor="middle" font-size="13" fill="#1e40af">per detected line</text>
+
+  <!-- 5 output -->
+  <rect x="915" y="120" width="175" height="110" rx="12" fill="#eef2f7" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="1002" y="160" text-anchor="middle" font-size="17" font-weight="700" fill="#1f2937">Output</text>
+  <text x="1002" y="184" text-anchor="middle" font-size="13" fill="#475569">transcript in</text>
+  <text x="1002" y="202" text-anchor="middle" font-size="13" fill="#475569">correct reading order</text>
+
+  <!-- arrows -->
+  <line x1="208" y1="175" x2="242" y2="175" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="423" y1="175" x2="457" y2="175" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="663" y1="175" x2="697" y2="175" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="878" y1="175" x2="912" y2="175" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- reading-order detail callout -->
+  <text x="560" y="270" text-anchor="middle" font-size="13" font-weight="600" fill="#166534">skew estimate · line clustering · column split · left-to-right ordering</text>
+  <text x="560" y="292" text-anchor="middle" font-size="12" fill="#6b7280">computed from box coordinates — independent of detector output order (unit-tested)</text>
+
+  <!-- legend -->
+  <rect x="392" y="328" width="16" height="14" rx="3" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="414" y="340" font-size="12.5" fill="#475569">pretrained model</text>
+  <rect x="560" y="328" width="16" height="14" rx="3" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+  <text x="582" y="340" font-size="12.5" fill="#475569">engineered in this project</text>
+</svg>
