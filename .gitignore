@@ -17,12 +17,15 @@ env/
 _preview_*
 eval_results.csv
 gnhk_results.csv
+ml_eval_results.csv
+speed_benchmark.csv
 **/e2e_overlay.png
 
 # Datasets / archives
 *.zip
 gnhk/
 eval_data/
+xfund*/
 
 # OS / editor
 .DS_Store
