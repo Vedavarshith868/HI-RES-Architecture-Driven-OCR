@@ -233,8 +233,10 @@ def main() -> int:
     engine = MultilingualOcrEngine(lang=args.lang, det_model=args.det_model,
                                    rec_model=args.rec_model)
 
+    wm = not no_space  # CJK has no word boundaries -> WER/WordAcc meaningless
     scores = [evaluate_system(f"hires-ml[{args.lang}]", samples,
-                              hires_predict(engine, no_space), norm=norm, progress=True)]
+                              hires_predict(engine, no_space), norm=norm,
+                              progress=True, word_metrics=wm)]
     if not args.no_baseline:
         det_m = args.det_model if args.controlled else None
         rec_m = rec if args.controlled else None
@@ -242,13 +244,13 @@ def main() -> int:
             scores.append(evaluate_system(
                 f"paddle-stock[{args.lang}]", samples,
                 builtin_predict(args.lang, no_space, det_m, rec_m),
-                norm=norm, progress=True))
+                norm=norm, progress=True, word_metrics=wm))
         except Exception as e:
             print(f"  (stock PaddleOCR skipped: {type(e).__name__}: {e})")
 
     print("\n" + format_table(scores))
     if no_space:
-        print("\n(CJK: scored space-free; WER is not meaningful — read CER.)")
+        print("\n(CJK: no word boundaries — WER/WordAcc shown as '—'; CER is the metric.)")
     save_csv(scores, args.csv)
     print(f"per-page breakdown -> {args.csv}")
     return 0

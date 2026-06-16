@@ -389,10 +389,15 @@ class Score:
 
 def evaluate_system(name: str, samples: list[Sample], predict_text,
                     predict_lines=None, norm: NormCfg | None = None,
-                    progress: bool = False) -> Score:
+                    progress: bool = False, word_metrics: bool = True) -> Score:
     """Score one system. predict_text(image_rgb)->str. WordAcc is computed
     order-free from the text, so predict_lines is not required (kept for
     backward compatibility, ignored).
+
+    word_metrics=False skips WER and WordAcc — set it for **space-free CJK**,
+    where there are no word boundaries: stripping spaces makes the whole page one
+    token, so WER collapses to 100% and WordAcc to 0% (meaningless). Only CER
+    (character-level) is valid there; the table then shows WER/WordAcc as '—'.
 
     progress=True prints a line per image (running CER + per-image seconds) so a
     slow run — e.g. heavy PaddleOCR models on a CPU runtime — shows it is working,
@@ -407,16 +412,18 @@ def evaluate_system(name: str, samples: list[Sample], predict_text,
         dt = time.perf_counter() - t0
 
         ce, cr = cer_counts(s.gt, hyp, norm)
-        we, wr = wer_counts(s.gt, hyp, norm)
-        wm, wt = word_acc_counts(s.gt, hyp, norm)
         sc.n += 1
         sc.cer_edits += ce; sc.cer_ref += cr
-        sc.wer_edits += we; sc.wer_ref += wr
-        sc.wa_matched += wm; sc.wa_total += wt
         sc.seconds += dt
-        sc.per_item.append({"system": name, "image": s.name, "cer": ce / max(cr, 1),
-                            "wer": we / max(wr, 1), "word_acc": wm / max(wt, 1),
-                            "ref_chars": cr, "seconds": round(dt, 3)})
+        item = {"system": name, "image": s.name, "cer": ce / max(cr, 1),
+                "ref_chars": cr, "seconds": round(dt, 3)}
+        if word_metrics:
+            we, wr = wer_counts(s.gt, hyp, norm)
+            wm, wt = word_acc_counts(s.gt, hyp, norm)
+            sc.wer_edits += we; sc.wer_ref += wr
+            sc.wa_matched += wm; sc.wa_total += wt
+            item.update(wer=we / max(wr, 1), word_acc=wm / max(wt, 1))
+        sc.per_item.append(item)
         if progress:
             print(f"  [{name}] {sc.n}/{total} {s.name}: cer={sc.cer:.3f} "
                   f"({dt:.1f}s)", flush=True)
@@ -549,8 +556,10 @@ def format_table(scores: list[Score]) -> str:
     head = f"{'system':<16}{'CER':>8}{'WER':>8}{'WordAcc':>9}{'sec/img':>9}{'n':>5}"
     rows = [head, "-" * len(head)]
     for s in sorted(scores, key=lambda x: x.cer):
+        # WER/WordAcc are '—' when not computed (e.g. space-free CJK: no words)
+        wer = f"{s.wer:>8.1%}" if s.wer_ref else f"{'—':>8}"
         wa = f"{s.word_acc:>9.1%}" if s.word_acc is not None else f"{'—':>9}"
-        rows.append(f"{s.system:<16}{s.cer:>8.1%}{s.wer:>8.1%}{wa}"
+        rows.append(f"{s.system:<16}{s.cer:>8.1%}{wer}{wa}"
                     f"{s.sec_per_img:>9.2f}{s.n:>5}")
     return "\n".join(rows)
 
