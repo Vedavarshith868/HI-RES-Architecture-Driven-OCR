@@ -78,6 +78,12 @@ truth; `--gt-order geom` uses a geometric reading order.
 
 ## Run it on Colab (GPU)
 
+**Easiest:** open the one-click, self-contained notebook
+[`multilingual_ocr.ipynb`](../multilingual_ocr.ipynb) — it embeds the source and
+auto-downloads XFUND, no clone or manual data steps.
+
+Or assemble it yourself from the repo:
+
 ```python
 # 1. deps
 !pip -q install paddleocr paddlepaddle datasets opencv-python-headless

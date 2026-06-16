@@ -54,6 +54,8 @@ python benchmark_speed.py --images pages --n 20 --no-baseline # HI-RES only
 
 Both systems share the PP-OCRv5 detector, so the timing gap is the **recognizer**: TrOCR-large is an autoregressive decoder (heavier, handwriting-grade), while PP-OCRv5 server rec is a CTC head (lighter). The **reading-order stage is pure geometry — sub-millisecond per page** — so it is never the bottleneck; any HI-RES slowdown buys the stronger handwriting recognizer. Run on a GPU runtime for a fair comparison (TrOCR is GPU-bound). The script prints per-stage means, throughput (img/s), and the HI-RES↔PP-OCRv5 slowdown factor.
 
+One-click, self-contained notebook (embeds the source, synthesizes test pages, no setup): **[`speed_benchmark.ipynb`](speed_benchmark.ipynb)** — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Vedavarshith868/HI-RES-Architecture-Driven-OCR/blob/main/speed_benchmark.ipynb)
+
 ## Multilingual extension
 
 A separate pipeline — [`multilingual/`](multilingual/README.md) — applies the same reading-order stage to **multilingual document OCR**, where PaddleOCR PP-OCRv5 handles *both* detection and recognition:
@@ -62,7 +64,9 @@ A separate pipeline — [`multilingual/`](multilingual/README.md) — applies th
 PP-OCRv5 server detection → reading-order reconstruction → PP-OCRv5 recognition (per language)
 ```
 
-It recognizes **every** detected box (the stock pipeline silently drops low-confidence ones) and emits them in geometric reading order, then is scored against stock `PaddleOCR(lang=…)` on **XFUND** (Latin + CJK forms) for CER/WER and speed in one run. Left-to-right scripts (Latin/CJK/Indic); see [`multilingual/README.md`](multilingual/README.md) for details and a Colab cell.
+It recognizes **every** detected box (the stock pipeline silently drops low-confidence ones) and emits them in geometric reading order, then is scored against stock `PaddleOCR(lang=…)` on **XFUND** (Latin + CJK forms) for CER/WER and speed in one run. Left-to-right scripts (Latin/CJK/Indic); see [`multilingual/README.md`](multilingual/README.md) for details.
+
+One-click, self-contained notebook (embeds the source, auto-downloads XFUND): **[`multilingual_ocr.ipynb`](multilingual_ocr.ipynb)** — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Vedavarshith868/HI-RES-Architecture-Driven-OCR/blob/main/multilingual_ocr.ipynb)
 
 ## Quickstart
 
@@ -111,7 +115,11 @@ evaluate.py            # CER/WER + WordAcc harness, dataset loaders, baseline ru
 benchmark_speed.py     # inference speed: HI-RES vs PP-OCRv5 server, per-stage timing
 multilingual/          # separate PP-OCR det+rec pipeline with HI-RES ordering (Latin+CJK)
 make_colab_notebook.py # generates colab_ocr_debug.ipynb
-colab_ocr_debug.ipynb  # self-contained Colab notebook
+colab_ocr_debug.ipynb  # self-contained Colab notebook (handwriting pipeline + eval)
+make_speed_notebook.py # generates speed_benchmark.ipynb
+speed_benchmark.ipynb  # self-contained Colab: HI-RES vs PP-OCRv5 speed
+make_multilingual_notebook.py # generates multilingual_ocr.ipynb
+multilingual_ocr.ipynb # self-contained Colab: multilingual pipeline vs stock PaddleOCR
 tests/                 # geometry + metric unit tests (no model needed) + end-to-end smoke tests
 docs/ANALYSIS.md       # engineering audit of the original prototype and what was fixed/verified
 ```
