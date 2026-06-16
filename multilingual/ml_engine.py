@@ -108,9 +108,14 @@ class MultilingualOcrEngine:
     """PP-OCRv5 detection -> reading order -> PP-OCRv5 recognition."""
 
     def __init__(self, lang: str = "ch", det_model: str = "PP-OCRv5_server_det",
-                 rec_model: str | None = None):
+                 rec_model: str | None = None, crop_pad: float = 0.0):
         self.lang = lang
         self.word_sep = "" if lang in _NO_SPACE_LANGS else " "
+        # PP-OCR rec models are trained on tight crops (the detector already
+        # unclips each box), so default to zero extra padding + cubic warp to
+        # match PaddleOCR's own get_rotate_crop_image; padding double-expands the
+        # box and drags neighboring glyphs in, hurting recognition on dense pages.
+        self.crop_pad = crop_pad
         self.detector = Detector(det_model)
         self.recognizer = PaddleRecognizer(rec_model or rec_model_for(lang))
 
@@ -143,7 +148,9 @@ class MultilingualOcrEngine:
             for pos, i in enumerate(line.members):
                 h = pipeline.quad_size(ordered[i])[1]
                 c = pipeline.perspective_crop(img_rgb, ordered[i],
-                                              allow_rot90=h > 2.2 * med_h)
+                                              pad_frac=self.crop_pad,
+                                              allow_rot90=h > 2.2 * med_h,
+                                              interp=cv2.INTER_CUBIC)
                 if c is not None:
                     crops.append(c)
                     owner_line.append(li)

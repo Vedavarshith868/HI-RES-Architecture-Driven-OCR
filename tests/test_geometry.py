@@ -186,6 +186,20 @@ class TestMergeAndCrop(unittest.TestCase):
         self.assertLess(mid, 60)          # painted bar
         self.assertGreater(corner, 200)   # padded margin is page-white
 
+    def test_tight_crop_matches_box_and_excludes_neighbor(self):
+        # a tight crop (pad_frac=0, PP-OCR style) must size to the box itself and
+        # NOT include a neighbor glyph just outside it; a padded crop drags it in.
+        img = np.full((200, 400, 3), 255, dtype=np.uint8)
+        box = make_box(100, 80, 120, 40)            # the text box
+        cv2.fillPoly(img, [make_box(226, 80, 20, 40).astype(np.int32)], (0, 0, 0))  # neighbor to the right
+        tight = pipeline.perspective_crop(img, box, pad_frac=0.0)
+        padded = pipeline.perspective_crop(img, box, pad_frac=0.25)
+        self.assertEqual(tight.shape[1], 120)        # exact box width, no expansion
+        self.assertGreater(padded.shape[1], tight.shape[1])  # padding enlarges
+        # tight crop's right edge is page-white (neighbor excluded); padded pulls it in
+        self.assertGreater(tight[:, -2].mean(), 200)
+        self.assertLess(padded[:, -2].mean(), tight[:, -2].mean())
+
     def test_degenerate_quad_returns_none(self):
         line = np.array([[10, 10], [200, 10], [200, 10], [10, 10]], dtype=np.float64)
         self.assertIsNone(pipeline.perspective_crop(

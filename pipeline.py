@@ -325,21 +325,31 @@ def expand_quad(quad: np.ndarray, pad_frac: float = 0.05) -> np.ndarray:
 
 
 def perspective_crop(img: np.ndarray, quad, pad_frac: float = 0.05,
-                     allow_rot90: bool = False) -> np.ndarray | None:
+                     allow_rot90: bool = False,
+                     interp: int = cv2.INTER_LINEAR) -> np.ndarray | None:
     """Rectify one ordered quad into an axis-aligned crop.
 
     Returns None for degenerate boxes instead of crashing warpPerspective.
     allow_rot90 rotates strongly vertical crops (h >= 2w) upright — pass it
     only for boxes known not to be single tall characters like 'I'.
+
+    pad_frac controls how far the quad is expanded before warping. TrOCR likes a
+    small margin (default 0.05) for handwriting ascenders/descenders. PaddleOCR
+    recognition models, however, are trained on TIGHT crops (the detector already
+    expands each box via its unclip ratio), so pass pad_frac=0.0 and
+    interp=cv2.INTER_CUBIC there to match PP-OCR's own `get_rotate_crop_image` —
+    extra padding double-expands the box and pulls neighboring glyphs into the
+    crop, which hurts recognition on dense pages.
     """
-    q = expand_quad(order_points(quad), pad_frac).astype(np.float32)
+    q = (expand_quad(order_points(quad), pad_frac) if pad_frac else order_points(quad)
+         ).astype(np.float32)
     w = int(round(max(np.linalg.norm(q[1] - q[0]), np.linalg.norm(q[2] - q[3]))))
     h = int(round(max(np.linalg.norm(q[3] - q[0]), np.linalg.norm(q[2] - q[1]))))
     if w < 2 or h < 2:
         return None
     dst = np.array([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]], dtype=np.float32)
     m = cv2.getPerspectiveTransform(q, dst)
-    warped = cv2.warpPerspective(img, m, (w, h), flags=cv2.INTER_LINEAR,
+    warped = cv2.warpPerspective(img, m, (w, h), flags=interp,
                                  borderMode=cv2.BORDER_REPLICATE)
     if allow_rot90 and h >= 2 * w:
         # np.rot90 returns a negative-stride VIEW; torch.from_numpy (in the
