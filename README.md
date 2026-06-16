@@ -48,9 +48,12 @@ Benchmarked on **GNHK** (172 real-world "handwriting-in-the-wild" photos), every
 HI-RES and PP-OCRv5 server reach nearly the same accuracy (29.5% vs 28.3% CER), so the practical question becomes throughput. `benchmark_speed.py` times both on the **same images**, splitting HI-RES into its three stages so the bottleneck is explicit:
 
 ```bash
-python benchmark_speed.py --images gnhk/test --n 30          # HI-RES vs PP-OCRv5 server
-python benchmark_speed.py --images pages --n 20 --no-baseline # HI-RES only
+python benchmark_speed.py --images gnhk/test --n 30                 # HI-RES vs PP-OCRv6 medium (default)
+python benchmark_speed.py --images gnhk/test --n 30 --baseline v5-server
+python benchmark_speed.py --images pages --n 20 --no-baseline        # HI-RES only
 ```
+
+The baseline defaults to **PP-OCRv6 medium** (released June 2026 — lightweight, ~5× CPU speedup, and more accurate than PP-OCRv5_server); the older heavy PP-OCRv5 server pipeline can be selected with `--baseline v5-server` but tends to OOM on Colab.
 
 Both systems share the PP-OCRv5 detector, so the timing gap is the **recognizer**: TrOCR-large is an autoregressive decoder (heavier, handwriting-grade), while PP-OCRv5 server rec is a CTC head (lighter). The **reading-order stage is pure geometry — sub-millisecond per page** — so it is never the bottleneck; any HI-RES slowdown buys the stronger handwriting recognizer. Run on a GPU runtime for a fair comparison (TrOCR is GPU-bound). The script prints per-stage means, throughput (img/s), and the HI-RES↔PP-OCRv5 slowdown factor.
 

@@ -1,20 +1,19 @@
-"""Inference-speed benchmark: HI-RES pipeline vs the PP-OCRv5 *server* pipeline.
+"""Inference-speed benchmark: HI-RES pipeline vs a PaddleOCR baseline.
 
 Both systems transcribe the SAME images on the SAME machine, so the timings are
 directly comparable. HI-RES = PP-OCRv5 detection -> reading-order reconstruction
--> TrOCR-large recognition. The baseline = PaddleOCR's built-in PP-OCRv5 server
-det+rec pipeline (the strongest-accuracy baseline, ~28% CER on GNHK).
+-> TrOCR-large recognition. The baseline = PaddleOCR's built-in det+rec pipeline,
+defaulting to **PP-OCRv6 medium** (released June 2026: light, ~5x CPU speedup,
+beats PP-OCRv5_server on accuracy). Pick another with --baseline, e.g. v5-server
+or v6-small. PP-OCRv5 *server* OOMs / native-crashes on Colab, which is why the
+lighter v6 default is preferred.
 
-Because both use the same detector, the timing gap is the recognizer plus the
-(negligible) reading-order geometry. This benchmark makes that explicit by
-splitting HI-RES into detect / order+crop / recognize, so you can say *why* one
-is faster rather than just *which*.
-
-Run on a GPU runtime (Colab T4): TrOCR is GPU-bound, and PP-OCRv5 server rec is
-unstable on CPU. The first --warmup images are excluded (graph/JIT/CUDA warmup).
+HI-RES is split into detect / order+crop / recognize, so you can say *why* one is
+faster, not just *which*. Run on a GPU runtime (Colab T4): TrOCR is GPU-bound. The
+first --warmup images are excluded (graph/JIT/CUDA warmup).
 
     python benchmark_speed.py --images gnhk/test --n 30
-    python benchmark_speed.py --images pages --n 20 --warmup 3 --beams 1
+    python benchmark_speed.py --images pages --n 20 --baseline v5-server
     python benchmark_speed.py --images pages --n 20 --no-baseline   # HI-RES only
 """
 from __future__ import annotations
@@ -108,27 +107,40 @@ class HiResTimer:
                 "total": t3 - t0, "boxes": int(len(quads))}
 
 
-class PaddleServerTimer:
-    """Times PaddleOCR's built-in PP-OCRv5 det+rec pipeline (end-to-end).
+# Baseline presets: (text_detection_model_name, text_recognition_model_name).
+# None -> let PaddleOCR pick its default, which is **PP-OCRv6 medium** as of
+# June 2026 (light, ~5x CPU speedup, beats PP-OCRv5_server on accuracy, and
+# avoids the PP-OCRv5 *server* RAM blow-up / native crash on Colab).
+BASELINE_PRESETS = {
+    "v6": (None, None),
+    "v6-medium": ("PP-OCRv6_medium_det", "PP-OCRv6_medium_rec"),
+    "v6-small": ("PP-OCRv6_small_det", "PP-OCRv6_small_rec"),
+    "v6-tiny": ("PP-OCRv6_tiny_det", "PP-OCRv6_tiny_rec"),
+    "v5-server": ("PP-OCRv5_server_det", "PP-OCRv5_server_rec"),
+    "v5-mobile": ("PP-OCRv5_mobile_det", "PP-OCRv5_mobile_rec"),
+}
 
-    tier='server' is the on-par accuracy baseline; switch to 'mobile' if the
-    server recognizer crashes natively on a CPU runtime (a known paddle CPU
-    instability that can't be caught in Python — use a GPU runtime, or 'mobile')."""
 
-    def __init__(self, tier: str = "server"):
+class PaddleBaselineTimer:
+    """Times PaddleOCR's built-in det+rec pipeline end-to-end.
+
+    With no model names it uses PaddleOCR's current default (PP-OCRv6 medium as of
+    June 2026) — lightweight and stable, unlike the PP-OCRv5 *server* models which
+    OOM / native-crash on Colab. Pass det_model/rec_model (see BASELINE_PRESETS) to
+    pin a specific tier or an older model."""
+
+    def __init__(self, det_model: str | None = None, rec_model: str | None = None):
         from paddleocr import PaddleOCR
-        det = f"PP-OCRv5_{tier}_det"
-        rec = f"PP-OCRv5_{tier}_rec"
+        base = dict(use_doc_orientation_classify=False, use_doc_unwarping=False,
+                    use_textline_orientation=False, enable_mkldnn=False)
+        named = dict(base)
+        if det_model:
+            named["text_detection_model_name"] = det_model
+        if rec_model:
+            named["text_recognition_model_name"] = rec_model
         self.ocr = None
         last = None
-        for kw in (
-            dict(lang="en", enable_mkldnn=False,
-                 text_detection_model_name=det, text_recognition_model_name=rec,
-                 use_doc_orientation_classify=False, use_doc_unwarping=False,
-                 use_textline_orientation=False),
-            dict(lang="en", enable_mkldnn=False),
-            dict(lang="en"),
-        ):
+        for kw in (named, base, dict(use_textline_orientation=False), {}):
             try:
                 self.ocr = PaddleOCR(**kw)
                 break
@@ -136,7 +148,7 @@ class PaddleServerTimer:
                 last = e
                 continue
         if self.ocr is None:
-            raise RuntimeError(f"could not init PaddleOCR server pipeline: {last}")
+            raise RuntimeError(f"could not init PaddleOCR baseline: {last}")
 
     def __call__(self, img_rgb: np.ndarray) -> dict:
         bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
@@ -228,9 +240,10 @@ def main() -> int:
     ap.add_argument("--beams", type=int, default=1, help="TrOCR beams (1 = greedy)")
     ap.add_argument("--device", default=None, help="torch device for TrOCR")
     ap.add_argument("--no-baseline", action="store_true",
-                    help="skip the PP-OCRv5 pipeline (HI-RES only)")
-    ap.add_argument("--baseline-tier", choices=["server", "mobile"], default="server",
-                    help="PP-OCRv5 baseline tier (use 'mobile' if server crashes on CPU)")
+                    help="skip the PaddleOCR baseline (HI-RES only)")
+    ap.add_argument("--baseline", choices=list(BASELINE_PRESETS), default="v6",
+                    help="PaddleOCR baseline (default v6 = PP-OCRv6 medium; "
+                         "v5-server is heavy/OOM-prone on Colab)")
     ap.add_argument("--csv", default="speed_benchmark.csv")
     args = ap.parse_args()
 
@@ -246,12 +259,13 @@ def main() -> int:
     device = hires_timer.device
     hires = run_timer(hires_timer, images, args.warmup, "HI-RES")
 
-    baseline_label = f"PP-OCRv5 {args.baseline_tier}"
+    baseline_label = f"PP-OCR[{args.baseline}]"
+    det_m, rec_m = BASELINE_PRESETS[args.baseline]
     paddle = None
     if not args.no_baseline:
         try:
             print(f"init {baseline_label} pipeline...", flush=True)
-            paddle = run_timer(PaddleServerTimer(tier=args.baseline_tier), images,
+            paddle = run_timer(PaddleBaselineTimer(det_m, rec_m), images,
                                args.warmup, baseline_label)
         except Exception as e:
             print(f"  (baseline skipped: {type(e).__name__}: {e})")
