@@ -63,11 +63,12 @@ cells = [
     ),
     md(
         "## 2. Project source (embedded)\n"
-        "Geometry + detector + metrics, then the two multilingual modules. (No TrOCR here — recognition\n"
-        "is PP-OCR, so this notebook is light.)"
+        "Geometry (`pipeline.py`), the paddle-only **detector** (`detector.py`), metrics (`evaluate.py`),\n"
+        "then the two multilingual modules. **No TrOCR / handwriting engine here** — detection and\n"
+        "recognition are both PP-OCR, so this notebook never imports `ocr_engine.py`."
     ),
     writefile_cell("pipeline.py", "pipeline.py"),
-    writefile_cell("ocr_engine.py", "ocr_engine.py"),
+    writefile_cell("detector.py", "detector.py"),
     writefile_cell("evaluate.py", "evaluate.py"),
     writefile_cell("ml_engine.py", "multilingual/ml_engine.py"),
     writefile_cell("ml_evaluate.py", "multilingual/ml_evaluate.py"),

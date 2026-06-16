@@ -50,6 +50,7 @@ cells = [
     md("## 2. Pipeline source (geometry / reading order — pure numpy+cv2)"),
     writefile_cell("pipeline.py", "pipeline.py"),
     md("## 3. Engine source (detection + recognition glue)"),
+    writefile_cell("detector.py", "detector.py"),
     writefile_cell("ocr_engine.py", "ocr_engine.py"),
     md("## 4. Geometry unit tests (no models needed, ~1 s)\n20 tests incl. a fixture where naive y-sorting provably fails."),
     writefile_cell("test_geometry.py", "tests/test_geometry.py"),

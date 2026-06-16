@@ -42,9 +42,10 @@ multilingual/ml_engine.py     # MultilingualOcrEngine: PP-OCR det → reading or
 multilingual/ml_evaluate.py   # XFUND loader + HI-RES vs stock PaddleOCR (CER/WER/WordAcc/speed)
 ```
 
-Both reuse `../pipeline.py` (the reading-order geometry) and `../ocr_engine.py`'s
-`Detector`, and `../evaluate.py`'s metrics — so the numbers are defined identically
-to the English benchmark.
+Both reuse `../pipeline.py` (the reading-order geometry), `../detector.py`'s
+`Detector` (the paddle-only detection wrapper — **no TrOCR/handwriting dependency**),
+and `../evaluate.py`'s metrics — so the numbers are defined identically to the
+English benchmark.
 
 ## Use
 

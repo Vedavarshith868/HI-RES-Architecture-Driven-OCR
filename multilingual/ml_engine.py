@@ -36,7 +36,7 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 import pipeline
-from ocr_engine import Detector  # reuse the PP-OCRv5 detector wrapper
+from detector import Detector  # paddle-only detection wrapper (no TrOCR dependency)
 
 # PP-OCRv5 server rec covers Chinese + English + Japanese (+ pinyin) in one
 # model. Other scripts use their own PP-OCR language recognition model. These

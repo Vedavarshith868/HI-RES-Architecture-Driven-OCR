@@ -52,6 +52,7 @@ cells = [
     ),
     md("## 2. Project source (embedded — geometry, engine, harness, benchmark)"),
     writefile_cell("pipeline.py", "pipeline.py"),
+    writefile_cell("detector.py", "detector.py"),
     writefile_cell("ocr_engine.py", "ocr_engine.py"),
     writefile_cell("evaluate.py", "evaluate.py"),
     writefile_cell("benchmark_speed.py", "benchmark_speed.py"),

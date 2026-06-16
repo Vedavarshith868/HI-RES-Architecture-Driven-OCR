@@ -112,7 +112,8 @@ Metrics: **CER / WER** (the headline) plus **WordAcc** — an order-free word ac
 
 ```
 pipeline.py            # reading-order geometry (deskew, clustering, cropping) — NumPy/OpenCV only
-ocr_engine.py          # Detector (PaddleOCR) + Recognizer (TrOCR) + OcrEngine.run()
+detector.py            # paddle-only PaddleOCR text-detection wrapper (shared by both pipelines)
+ocr_engine.py          # Recognizer (TrOCR) + OcrEngine.run() — handwriting pipeline
 app.py                 # Gradio UI + CLI
 evaluate.py            # CER/WER + WordAcc harness, dataset loaders, baseline runners
 benchmark_speed.py     # inference speed: HI-RES vs PP-OCRv5 server, per-stage timing
