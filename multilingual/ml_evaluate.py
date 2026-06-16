@@ -130,16 +130,26 @@ def hires_predict(engine: MultilingualOcrEngine, no_space: bool):
     return _f
 
 
-def _init_paddle(lang: str):
-    """Stock PaddleOCR full pipeline for a language (PIR+oneDNN guard applied)."""
+def _init_paddle(lang: str, det_model: str | None = None,
+                 rec_model: str | None = None):
+    """Stock PaddleOCR full pipeline (PIR+oneDNN guard applied).
+
+    Pass det_model/rec_model to force the SAME models HI-RES uses — that turns the
+    comparison into a controlled one where the only differences are HI-RES's
+    reading order, keep-every-box, and crop method (a fair test of the layer).
+    With both None, PaddleOCR loads its (heavier) defaults for `lang`."""
     from paddleocr import PaddleOCR
+    base = dict(enable_mkldnn=False, use_doc_orientation_classify=False,
+                use_doc_unwarping=False, use_textline_orientation=False)
+    named = dict(base)
+    if det_model:
+        named["text_detection_model_name"] = det_model
+    if rec_model:
+        named["text_recognition_model_name"] = rec_model
+    attempts = ([named] if (det_model or rec_model) else []) + [
+        dict(base, lang=lang), base, dict(lang=lang), {}]
     last = None
-    for kw in (
-        dict(lang=lang, enable_mkldnn=False, use_doc_orientation_classify=False,
-             use_doc_unwarping=False, use_textline_orientation=False),
-        dict(lang=lang, enable_mkldnn=False),
-        dict(lang=lang),
-    ):
+    for kw in attempts:
         try:
             return PaddleOCR(**kw)
         except (TypeError, ValueError) as e:
@@ -169,8 +179,9 @@ def _paddle_texts(ocr, bgr) -> list[str]:
     return out
 
 
-def builtin_predict(lang: str, no_space: bool):
-    ocr = _init_paddle(lang)
+def builtin_predict(lang: str, no_space: bool, det_model: str | None = None,
+                    rec_model: str | None = None):
+    ocr = _init_paddle(lang, det_model, rec_model)
 
     def _f(img):
         bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
@@ -194,7 +205,12 @@ def main() -> int:
     ap.add_argument("--gt-order", choices=["list", "geom"], default="list",
                     help="ground-truth reading order: dataset list order (default) or geometric")
     ap.add_argument("--n", type=int, default=None, help="cap number of pages")
+    ap.add_argument("--det-model", default="PP-OCRv5_mobile_det",
+                    help="PP-OCR detection model for HI-RES (mobile = fast on CPU)")
     ap.add_argument("--rec-model", default=None, help="override PP-OCR rec model name")
+    ap.add_argument("--controlled", action="store_true",
+                    help="give stock PaddleOCR the SAME det+rec models as HI-RES, "
+                         "isolating the reading-order layer (a fair, apples-to-apples test)")
     ap.add_argument("--no-baseline", action="store_true", help="skip stock PaddleOCR")
     ap.add_argument("--strip-punct", action="store_true")
     ap.add_argument("--csv", default="ml_eval_results.csv")
@@ -210,16 +226,23 @@ def main() -> int:
         return 1
 
     norm = NormCfg(strip_punct=args.strip_punct)
-    print(f"HI-RES rec model: {args.rec_model or rec_model_for(args.lang)}")
-    engine = MultilingualOcrEngine(lang=args.lang, rec_model=args.rec_model)
+    rec = args.rec_model or rec_model_for(args.lang)
+    print(f"HI-RES models: det={args.det_model} rec={rec}"
+          + ("  | stock: SAME models (controlled)" if args.controlled
+             else "  | stock: PaddleOCR defaults"))
+    engine = MultilingualOcrEngine(lang=args.lang, det_model=args.det_model,
+                                   rec_model=args.rec_model)
 
     scores = [evaluate_system(f"hires-ml[{args.lang}]", samples,
-                              hires_predict(engine, no_space), norm=norm)]
+                              hires_predict(engine, no_space), norm=norm, progress=True)]
     if not args.no_baseline:
+        det_m = args.det_model if args.controlled else None
+        rec_m = rec if args.controlled else None
         try:
             scores.append(evaluate_system(
                 f"paddle-stock[{args.lang}]", samples,
-                builtin_predict(args.lang, no_space), norm=norm))
+                builtin_predict(args.lang, no_space, det_m, rec_m),
+                norm=norm, progress=True))
         except Exception as e:
             print(f"  (stock PaddleOCR skipped: {type(e).__name__}: {e})")
 
