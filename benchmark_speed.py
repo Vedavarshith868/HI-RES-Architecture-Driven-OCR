@@ -119,6 +119,9 @@ BASELINE_PRESETS = {
     "v5-server": ("PP-OCRv5_server_det", "PP-OCRv5_server_rec"),
     "v5-mobile": ("PP-OCRv5_mobile_det", "PP-OCRv5_mobile_rec"),
 }
+# accept underscores too (v5_server == v5-server), a common typo
+BASELINE_PRESETS.update({k.replace("-", "_"): v
+                         for k, v in list(BASELINE_PRESETS.items()) if "-" in k})
 
 
 class PaddleBaselineTimer:
