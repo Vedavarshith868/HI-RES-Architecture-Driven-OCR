@@ -64,11 +64,11 @@ cells = [
     writefile_cell("ml_engine.py", "multilingual/ml_engine.py"),
     writefile_cell("ml_evaluate.py", "multilingual/ml_evaluate.py"),
     md(
-        "## 3. Get XFUND data (auto-download)\n"
+        "## 3. Get XFUND data + pick models\n"
         "[XFUND](https://github.com/doc-analysis/XFUND) (CC-BY-4.0) is multilingual forms with\n"
-        "per-segment text + boxes. Pick a language; Chinese (`zh`) and Japanese (`ja`) are recognized by\n"
-        "`PP-OCRv5_server_rec` directly, the Latin languages (`es/fr/it/de/pt`) use the shared Latin rec\n"
-        "model. If the GitHub release URL 404s, see the Hugging Face fallback note at the bottom."
+        "per-segment text + boxes. Pick a language. We default to the **light PP-OCRv5 mobile** det+rec\n"
+        "models: XFUND forms are box-dense, and on a **CPU runtime** the *server* detector is ~10× slower\n"
+        "(a 40-page run can take an hour). If the GitHub release URL 404s, see the HF fallback at the bottom."
     ),
     code(
         "import urllib.request, zipfile\n"
@@ -77,8 +77,10 @@ cells = [
         "XFUND_LANG = 'zh'      # zh | ja | es | fr | it | de | pt\n"
         "PPOCR_LANG = {'zh': 'ch', 'ja': 'japan', 'es': 'es', 'fr': 'fr',\n"
         "              'it': 'it', 'de': 'german', 'pt': 'pt'}[XFUND_LANG]\n"
-        "# Latin languages share one PP-OCR recognition model; CJK use the server rec model.\n"
-        "REC_MODEL = None if XFUND_LANG in ('zh', 'ja') else 'latin_PP-OCRv5_mobile_rec'\n"
+        "# Light mobile models keep CPU runtimes usable (server det is ~10x slower on dense forms).\n"
+        "DET_MODEL = 'PP-OCRv5_mobile_det'\n"
+        "REC_MODEL = ('PP-OCRv5_mobile_rec' if XFUND_LANG in ('zh', 'ja')\n"
+        "            else 'latin_PP-OCRv5_mobile_rec')\n"
         "\n"
         "DATA_DIR = f'xfund_{XFUND_LANG}'\n"
         "Path(DATA_DIR).mkdir(exist_ok=True)\n"
@@ -91,7 +93,7 @@ cells = [
         "with zipfile.ZipFile(Path(DATA_DIR, f'{XFUND_LANG}.val.zip')) as z:\n"
         "    z.extractall(DATA_DIR)\n"
         "print('XFUND', XFUND_LANG, 'ready in', DATA_DIR,\n"
-        "      '| PP-OCR lang:', PPOCR_LANG, '| rec model:', REC_MODEL or 'PP-OCRv5_server_rec')"
+        "      '| lang:', PPOCR_LANG, '| det:', DET_MODEL, '| rec:', REC_MODEL)"
     ),
     md(
         "## 4. Visual sanity check — one page\n"
@@ -101,13 +103,17 @@ cells = [
     ),
     code(
         "import matplotlib.pyplot as plt\n"
+        "import paddle\n"
         "import ml_evaluate as M, ml_engine as ML\n"
         "\n"
-        "N_PAGES = 40\n"
+        "print('paddle device:', paddle.device.get_device(),\n"
+        "      ' (cpu = slow; mobile models + small N help)')\n"
+        "\n"
+        "N_PAGES = 12          # XFUND forms are box-dense; raise once you know the per-page speed\n"
         "samples = M.load_xfund(DATA_DIR, PPOCR_LANG, split='val', n=N_PAGES)\n"
         "print(len(samples), 'pages loaded')\n"
         "\n"
-        "engine = ML.MultilingualOcrEngine(lang=PPOCR_LANG, rec_model=REC_MODEL)\n"
+        "engine = ML.MultilingualOcrEngine(lang=PPOCR_LANG, det_model=DET_MODEL, rec_model=REC_MODEL)\n"
         "s = samples[0]\n"
         "out = engine.run(s.image_rgb())\n"
         "\n"
@@ -123,7 +129,11 @@ cells = [
         "## 5. Evaluate: HI-RES vs stock PaddleOCR\n"
         "Both scored on the same pages with the metrics from `evaluate.py`. **CER** is the headline;\n"
         "**WordAcc** (order-free) separates recognition from ordering. CJK is scored space-free (ignore\n"
-        "WER there)."
+        "WER there).\n"
+        "\n"
+        "`progress=True` prints one line per page (running CER + seconds) so you can watch it work — XFUND\n"
+        "forms are dense, so expect a few seconds/page even with the mobile models on CPU. Lower `N_PAGES`\n"
+        "in §4 if it's too slow."
     ),
     code(
         "import evaluate as E\n"
@@ -132,12 +142,11 @@ cells = [
         "norm = E.NormCfg()\n"
         "\n"
         "scores = [E.evaluate_system(f'hires-ml[{PPOCR_LANG}]', samples,\n"
-        "                            M.hires_predict(engine, no_space), norm=norm)]\n"
-        "print('scored hires-ml')\n"
+        "                            M.hires_predict(engine, no_space), norm=norm, progress=True)]\n"
         "try:\n"
         "    scores.append(E.evaluate_system(f'paddle-stock[{PPOCR_LANG}]', samples,\n"
-        "                                    M.builtin_predict(PPOCR_LANG, no_space), norm=norm))\n"
-        "    print('scored paddle-stock')\n"
+        "                                    M.builtin_predict(PPOCR_LANG, no_space),\n"
+        "                                    norm=norm, progress=True))\n"
         "except Exception as e:\n"
         "    print('stock PaddleOCR skipped:', type(e).__name__, e)\n"
         "\n"

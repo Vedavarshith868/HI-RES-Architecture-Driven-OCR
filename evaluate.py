@@ -388,12 +388,18 @@ class Score:
 
 
 def evaluate_system(name: str, samples: list[Sample], predict_text,
-                    predict_lines=None, norm: NormCfg | None = None) -> Score:
+                    predict_lines=None, norm: NormCfg | None = None,
+                    progress: bool = False) -> Score:
     """Score one system. predict_text(image_rgb)->str. WordAcc is computed
     order-free from the text, so predict_lines is not required (kept for
-    backward compatibility, ignored)."""
+    backward compatibility, ignored).
+
+    progress=True prints a line per image (running CER + per-image seconds) so a
+    slow run — e.g. heavy PaddleOCR models on a CPU runtime — shows it is working,
+    not hung."""
     norm = norm or NormCfg()
     sc = Score(system=name)
+    total = len(samples)
     for s in samples:
         img = s.image_rgb()
         t0 = time.perf_counter()
@@ -411,6 +417,9 @@ def evaluate_system(name: str, samples: list[Sample], predict_text,
         sc.per_item.append({"system": name, "image": s.name, "cer": ce / max(cr, 1),
                             "wer": we / max(wr, 1), "word_acc": wm / max(wt, 1),
                             "ref_chars": cr, "seconds": round(dt, 3)})
+        if progress:
+            print(f"  [{name}] {sc.n}/{total} {s.name}: cer={sc.cer:.3f} "
+                  f"({dt:.1f}s)", flush=True)
     return sc
 
 
