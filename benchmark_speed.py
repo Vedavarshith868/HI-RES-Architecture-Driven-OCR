@@ -186,6 +186,10 @@ def report(hires: list[dict], paddle: list[dict] | None,
     tot = [r["total"] for r in hires]
     boxes = [r["boxes"] for r in hires]
 
+    if device == "cpu":
+        out.append("!! WARNING: TrOCR-large ran on CPU — it is an autoregressive 558M model,\n"
+                   "   ~50x slower on CPU than GPU. These HI-RES timings are a CPU worst case;\n"
+                   "   use a T4 runtime for a representative recognize time (~1-2 s/page).")
     out.append(f"HI-RES  (PP-OCRv5 det + reading-order + TrOCR-large, beams={beams}, "
                f"device={device}) — n={n}, warmup={warmup}")
     for name, vals in (("detect", det), ("order+crop", order),
