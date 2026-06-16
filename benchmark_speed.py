@@ -109,16 +109,21 @@ class HiResTimer:
 
 
 class PaddleServerTimer:
-    """Times PaddleOCR's built-in PP-OCRv5 server det+rec pipeline (end-to-end)."""
+    """Times PaddleOCR's built-in PP-OCRv5 det+rec pipeline (end-to-end).
 
-    def __init__(self):
+    tier='server' is the on-par accuracy baseline; switch to 'mobile' if the
+    server recognizer crashes natively on a CPU runtime (a known paddle CPU
+    instability that can't be caught in Python — use a GPU runtime, or 'mobile')."""
+
+    def __init__(self, tier: str = "server"):
         from paddleocr import PaddleOCR
+        det = f"PP-OCRv5_{tier}_det"
+        rec = f"PP-OCRv5_{tier}_rec"
         self.ocr = None
         last = None
         for kw in (
             dict(lang="en", enable_mkldnn=False,
-                 text_detection_model_name="PP-OCRv5_server_det",
-                 text_recognition_model_name="PP-OCRv5_server_rec",
+                 text_detection_model_name=det, text_recognition_model_name=rec,
                  use_doc_orientation_classify=False, use_doc_unwarping=False,
                  use_textline_orientation=False),
             dict(lang="en", enable_mkldnn=False),
@@ -159,7 +164,8 @@ def run_timer(timer, images: list[np.ndarray], warmup: int, label: str) -> list[
 
 
 def report(hires: list[dict], paddle: list[dict] | None,
-           device: str, beams: int, warmup: int) -> str:
+           device: str, beams: int, warmup: int,
+           baseline_label: str = "PP-OCRv5 server") -> str:
     out: list[str] = []
     n = len(hires)
     det = [r["detect"] for r in hires]
@@ -183,7 +189,7 @@ def report(hires: list[dict], paddle: list[dict] | None,
         pt = [r["total"] for r in paddle]
         pmean, pmed = _agg(pt)
         out.append("")
-        out.append(f"PP-OCRv5 server  (built-in det+rec) — n={len(paddle)}")
+        out.append(f"{baseline_label}  (built-in det+rec) — n={len(paddle)}")
         out.append(f"    {'total':<11} mean {pmean:7.3f}s   median {pmed:7.3f}s")
         out.append(f"    throughput {1.0 / pmean:5.2f} img/s")
 
@@ -192,7 +198,7 @@ def report(hires: list[dict], paddle: list[dict] | None,
         slow = tmean / pmean if pmean else float("nan")
         rec_share = 100 * rec_mean / tmean if tmean else 0.0
         faster = "slower" if slow >= 1 else "faster"
-        out.append(f"HI-RES is {slow:.1f}x {faster} than PP-OCRv5 server "
+        out.append(f"HI-RES is {slow:.1f}x {faster} than {baseline_label} "
                    f"({tmean:.3f}s vs {pmean:.3f}s per page).")
         out.append(f"Recognition is {rec_share:.0f}% of HI-RES time; "
                    f"detection is shared, reading-order is "
@@ -222,7 +228,9 @@ def main() -> int:
     ap.add_argument("--beams", type=int, default=1, help="TrOCR beams (1 = greedy)")
     ap.add_argument("--device", default=None, help="torch device for TrOCR")
     ap.add_argument("--no-baseline", action="store_true",
-                    help="skip the PP-OCRv5 server pipeline (HI-RES only)")
+                    help="skip the PP-OCRv5 pipeline (HI-RES only)")
+    ap.add_argument("--baseline-tier", choices=["server", "mobile"], default="server",
+                    help="PP-OCRv5 baseline tier (use 'mobile' if server crashes on CPU)")
     ap.add_argument("--csv", default="speed_benchmark.csv")
     args = ap.parse_args()
 
@@ -238,16 +246,18 @@ def main() -> int:
     device = hires_timer.device
     hires = run_timer(hires_timer, images, args.warmup, "HI-RES")
 
+    baseline_label = f"PP-OCRv5 {args.baseline_tier}"
     paddle = None
     if not args.no_baseline:
         try:
-            print("init PP-OCRv5 server pipeline...", flush=True)
-            paddle = run_timer(PaddleServerTimer(), images, args.warmup,
-                               "PP-OCRv5 server")
+            print(f"init {baseline_label} pipeline...", flush=True)
+            paddle = run_timer(PaddleServerTimer(tier=args.baseline_tier), images,
+                               args.warmup, baseline_label)
         except Exception as e:
             print(f"  (baseline skipped: {type(e).__name__}: {e})")
 
-    print("\n" + report(hires, paddle, device, args.beams, args.warmup))
+    print("\n" + report(hires, paddle, device, args.beams, args.warmup,
+                        baseline_label))
     save_csv(hires, paddle, args.csv)
     print(f"\nper-image timings -> {args.csv}")
     return 0
