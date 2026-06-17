@@ -551,16 +551,14 @@ def baseline_predict(name: str):
 # --------------------------------------------------------------------------
 
 def format_table(scores: list[Score]) -> str:
-    # CER/WER are the headline (lower better); WordAcc is an order-free
-    # recognition diagnostic (higher better) — NOT subtracted from CER.
-    head = f"{'system':<16}{'CER':>8}{'WER':>8}{'WordAcc':>9}{'sec/img':>9}{'n':>5}"
+    # Standard OCR metrics: CER and WER (both corpus-level Levenshtein, lower is better).
+    # WordAcc is kept in the CSV for per-image diagnostics but not shown in the table —
+    # it is order-free and not a standard benchmark metric.
+    head = f"{'system':<20}{'CER':>8}{'WER':>8}{'sec/img':>9}{'n':>5}"
     rows = [head, "-" * len(head)]
     for s in sorted(scores, key=lambda x: x.cer):
-        # WER/WordAcc are '—' when not computed (e.g. space-free CJK: no words)
         wer = f"{s.wer:>8.1%}" if s.wer_ref else f"{'—':>8}"
-        wa = f"{s.word_acc:>9.1%}" if s.word_acc is not None else f"{'—':>9}"
-        rows.append(f"{s.system:<16}{s.cer:>8.1%}{wer}{wa}"
-                    f"{s.sec_per_img:>9.2f}{s.n:>5}")
+        rows.append(f"{s.system:<20}{s.cer:>8.1%}{wer}{s.sec_per_img:>9.2f}{s.n:>5}")
     return "\n".join(rows)
 
 
