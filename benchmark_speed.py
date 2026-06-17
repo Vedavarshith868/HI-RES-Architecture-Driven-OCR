@@ -87,8 +87,9 @@ def build_crops(img_rgb: np.ndarray, quads: np.ndarray) -> list[np.ndarray]:
 class HiResTimer:
     """Times HI-RES per stage: detect, order+crop, recognize."""
 
-    def __init__(self, beams: int = 1, device: str | None = None):
-        self.detector = Detector()
+    def __init__(self, beams: int = 1, device: str | None = None,
+                 det_model: str = "PP-OCRv6_medium_det"):
+        self.detector = Detector(det_model)
         self.recognizer = Recognizer(device=device)
         self.beams = beams
         self.device = str(self.recognizer.device)
