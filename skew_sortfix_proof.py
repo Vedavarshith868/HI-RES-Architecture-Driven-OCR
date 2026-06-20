@@ -42,9 +42,13 @@ import ml_engine as ML
 import ml_evaluate as M
 
 # ---- configuration -------------------------------------------------------
-SKEW_LANGS = ["zh", "ja", "de", "es", "fr"]
-PPOCR_LANGS = {"zh": "ch", "ja": "japan", "de": "german", "es": "es", "fr": "fr"}
-SKEW_N = 8                       # pages per language
+# All 7 XFUND languages (2 scripts: CJK = zh, ja; Latin = de, es, fr, it, pt).
+SKEW_LANGS = ["zh", "ja", "de", "es", "fr", "it", "pt"]
+PPOCR_LANGS = {"zh": "ch", "ja": "japan", "de": "german", "es": "es",
+               "fr": "fr", "it": "it", "pt": "pt"}
+SKEW_N = 50                      # pages/language; XFUND val is ~50 -> uses the FULL val split.
+                                 # ~40-50 min on a T4. Lower to e.g. 25 if GPU-limited
+                                 # (still 25x7 = 175 pages, far beyond a token sample).
 SKEW_ANGLES = [0, 3, 6, 10]     # degrees
 DET_MODEL = "PP-OCRv6_medium_det"
 REC_MODEL = "PP-OCRv6_medium_rec"
