@@ -70,10 +70,12 @@ def paddle_sorted_order(boxes: list[np.ndarray]) -> list[int]:
 
 
 def skew_robust_order(boxes: list[np.ndarray]) -> list[int]:
-    """Skew-aware reading order: deskew -> line-cluster -> ltr within line."""
-    quads = np.asarray(boxes, dtype=np.float64)
-    lines, _theta = pipeline.reading_order(quads)
-    return [i for line in lines for i in line.members]
+    """Skew-aware reading order — the EXACT minimal function proposed for the PR
+    (sorted_boxes_skew.py): deskew the sort keys + height-relative row threshold.
+    Identical to PaddleOCR on upright pages; no multi-column logic, so this
+    isolates the *skew* fix only."""
+    from sorted_boxes_skew import reading_order_indices
+    return reading_order_indices(boxes)
 
 
 # ---- helpers -------------------------------------------------------------
