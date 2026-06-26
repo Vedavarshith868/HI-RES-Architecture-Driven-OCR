@@ -1,0 +1,25 @@
+name: keep-hf-space-awake
+# Pings the HuggingFace Space so it never sits idle for 48h and sleeps.
+# IMPORTANT: this must live in a GitHub repo (GitHub Actions does not run on the
+# HF Space repo). Set a repo variable SPACE_URL to your Space's app URL, e.g.
+#   https://imperiusrex-hi-res-ocr.hf.space
+# (Settings -> Secrets and variables -> Actions -> Variables -> New variable)
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"   # every 6 hours
+  workflow_dispatch: {}        # allow manual run
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the Space
+        run: |
+          url="${{ vars.SPACE_URL }}"
+          if [ -z "$url" ]; then
+            echo "SPACE_URL repo variable is not set; nothing to ping."
+            exit 0
+          fi
+          code=$(curl -sS -L --max-time 120 -o /dev/null -w "%{http_code}" "$url" || echo "000")
+          echo "Pinged $url -> HTTP $code"
