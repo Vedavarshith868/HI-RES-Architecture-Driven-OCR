@@ -14,11 +14,11 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-import pipeline
+from core import pipeline
 # Detector lives in its own paddle-only module now (shared with the multilingual
 # engine); re-exported here so existing imports `from ocr_engine import Detector`
 # keep working.
-from detector import Detector, DET_MODEL_NAME, MIN_DET_SCORE  # noqa: F401
+from core.detector import Detector, DET_MODEL_NAME, MIN_DET_SCORE  # noqa: F401
 
 MODEL_HUB_ID = "imperiusrex/Handwritten_model"  # re-save of microsoft/trocr-large-handwritten
 LOCAL_MODEL_DIR = Path(__file__).resolve().parent / "local_trocr_model"

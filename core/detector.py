@@ -14,7 +14,7 @@ import sys
 import cv2
 import numpy as np
 
-import pipeline
+from core import pipeline
 
 DET_MODEL_NAME = os.environ.get("OCR_DET_MODEL", "PP-OCRv5_server_det")
 MIN_DET_SCORE = 0.30

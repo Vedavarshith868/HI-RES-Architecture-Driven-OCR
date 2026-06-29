@@ -35,8 +35,8 @@ _ROOT = str(Path(__file__).resolve().parent.parent)
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-import pipeline
-from detector import Detector  # paddle-only detection wrapper (no TrOCR dependency)
+from core import pipeline
+from core.detector import Detector  # paddle-only detection wrapper (no TrOCR dependency)
 
 # PP-OCRv5 server rec covers Chinese + English + Japanese (+ pinyin) in one
 # model. Other scripts use their own PP-OCR language recognition model. These
@@ -120,7 +120,7 @@ class MultilingualOcrEngine:
         self.recognizer = PaddleRecognizer(rec_model or rec_model_for(lang))
 
     def run(self, img_rgb: np.ndarray, batch_size: int = 16,
-            make_visuals: bool = True) -> dict:
+            make_visuals: bool = True, column_split: bool = True) -> dict:
         """Full-page OCR. Returns text, per-line boxes/text, skew, timing, and
         (optionally) an overlay + side-by-side transcript composite."""
         t0 = time.perf_counter()
@@ -136,7 +136,7 @@ class MultilingualOcrEngine:
                     "seconds": {"detect": t_det - t0, "recognize": 0.0},
                     "note": "no text boxes detected"}
 
-        lines, theta = pipeline.reading_order(quads)
+        lines, theta = pipeline.reading_order(quads, column_split=column_split)
         ordered = [pipeline.order_points(q) for q in quads]
         med_h = float(np.median([pipeline.quad_size(q)[1] for q in ordered]))
 
@@ -165,6 +165,14 @@ class MultilingualOcrEngine:
         line_texts = [self.word_sep.join(t for _, t in sorted(ws))
                       for ws in line_words]
 
+        # per-line tokens (text + box) in left-to-right order, so a downstream
+        # consumer can reconstruct columns/tables from the geometry
+        token_lines = [
+            [{"text": txt, "box": ordered[lines[li].members[pos]].tolist()}
+             for pos, txt in sorted(line_words[li])]
+            for li in range(len(lines))
+        ]
+
         text = pipeline.assemble_text(lines, line_texts)
         t_rec = time.perf_counter()
 
@@ -173,6 +181,7 @@ class MultilingualOcrEngine:
             "lines": [{"text": line_texts[k],
                        "boxes": [quads[i].tolist() for i in lines[k].members]}
                       for k in range(len(lines))],
+            "token_lines": token_lines,
             "skew_deg": theta,
             "seconds": {"detect": t_det - t0, "recognize": t_rec - t_det},
             "n_boxes": int(len(quads)),

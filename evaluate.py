@@ -439,7 +439,7 @@ def recognizer_predictor(recognizer=None, **rec_kwargs):
     Use on single-line images (e.g. IAM lines) for a recognizer-quality number
     directly comparable to published TrOCR CER."""
     if recognizer is None:
-        from ocr_engine import Recognizer
+        from handwritten.engine import Recognizer
         recognizer = Recognizer(**rec_kwargs)
     return lambda img: recognizer([img])[0]
 
@@ -450,7 +450,7 @@ def evaluate_recognizer(name: str, samples: list[Sample], recognizer=None,
     set through TrOCR in batches instead of one image at a time."""
     norm = norm or NormCfg()
     if recognizer is None:
-        from ocr_engine import Recognizer
+        from handwritten.engine import Recognizer
         recognizer = Recognizer()
     imgs = [s.image_rgb() for s in samples]
     t0 = time.perf_counter()
@@ -477,7 +477,7 @@ def evaluate_recognizer(name: str, samples: list[Sample], recognizer=None,
 def pipeline_predictors(engine=None, **engine_kwargs):
     """Return (predict_text, predict_lines) for THIS project's pipeline."""
     if engine is None:
-        from ocr_engine import OcrEngine
+        from handwritten.engine import OcrEngine
         engine = OcrEngine(**engine_kwargs)
     cache: dict[int, dict] = {}
 

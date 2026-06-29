@@ -12,7 +12,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import pipeline  # noqa: E402
+from core import pipeline  # noqa: E402
 
 
 def make_box(x, y, w, h):

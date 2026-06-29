@@ -1,94 +1,159 @@
-"""Handwritten-text OCR app: PaddleOCR detection + reading order + TrOCR.
+"""Gradio demo: HI-RES OCR — two tabs, both loaded once at startup.
 
-Run as a Gradio app:      python app.py
-Run once on an image:     python app.py --image page.jpg
+Tab 1 — Handwritten (English): PaddleOCR detection -> deterministic reading
+order (deskew + column split + line clustering) -> TrOCR-large recognition.
+
+Tab 2 — Printed / Multilingual: PP-OCRv6 detection -> the same reading-order
+layer -> PP-OCRv6 recognition (~50 languages). Column-aligned blocks are
+rendered as Markdown tables.
+
+The two pipelines share the detector + reading-order layer and differ only in
+the recognizer. They load once into memory and stay warm.
 """
-
 from __future__ import annotations
 
-import argparse
-from pathlib import Path
+import os
+import sys
+import traceback
 
-try:  # HF Spaces ZeroGPU decorator; harmless no-op elsewhere
-    from spaces import GPU
-except ImportError:
-    def GPU(fn=None, **_kwargs):
-        if fn is None:
-            return lambda f: f
-        return fn
+import numpy as np
+import gradio as gr
 
-from ocr_engine import OcrEngine
+_HERE = os.path.dirname(os.path.abspath(__file__))
+for _p in (_HERE,):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
-engine = OcrEngine()
+from printed.tabularize import layout_to_markdown, _md_text  # noqa: E402
+
+# ---- load both engines once at startup -----------------------------------
+HW = None
+HW_ERR = None
+ML = None
+ML_ERR = None
 
 
-@GPU
-def recognize(image, merge_segments: bool = True, num_beams: int = 1):
+def _load_engines():
+    global HW, HW_ERR, ML, ML_ERR
+    try:
+        from handwritten.engine import OcrEngine
+        print("Loading handwritten (TrOCR-large) engine ...", flush=True)
+        HW = OcrEngine()  # auto device: GPU if available, else CPU
+        print("  handwritten engine ready.", flush=True)
+    except Exception:
+        HW_ERR = traceback.format_exc()
+        print("Handwritten engine FAILED:\n" + HW_ERR, flush=True)
+    try:
+        from printed.engine import MultilingualOcrEngine
+        print("Loading multilingual (PP-OCRv6) engine ...", flush=True)
+        ML = MultilingualOcrEngine(
+            lang="en",
+            det_model="PP-OCRv6_medium_det",
+            rec_model="PP-OCRv6_medium_rec",
+        )
+        print("  multilingual engine ready.", flush=True)
+    except Exception:
+        ML_ERR = traceback.format_exc()
+        print("Multilingual engine FAILED:\n" + ML_ERR, flush=True)
+
+
+_load_engines()
+
+
+# ---- inference callbacks -------------------------------------------------
+def _ml_token_lines(res):
+    """Convert engine tokens to (text, x0, x1) lines + median text height (px)."""
+    out, heights = [], []
+    for line in res.get("token_lines", []):
+        toks = []
+        for tk in line:
+            box = np.asarray(tk["box"], dtype=float)
+            xs, ys = box[:, 0], box[:, 1]
+            heights.append(float(ys.max() - ys.min()))
+            toks.append((tk["text"], float(xs.min()), float(xs.max())))
+        out.append(toks)
+    lh = float(np.median(heights)) if heights else None
+    return out, lh
+
+
+def run_handwritten(image):
     if image is None:
         return "Please upload an image.", None
-    result = engine.run(image, merge_segments=merge_segments, num_beams=int(num_beams))
-    text = result["text"]
-    if note := result.get("note"):
-        text = f"[{note}]\n{text}"
-    return text, result["composite"]
+    if HW is None:
+        return f"Handwriting engine failed to load:\n\n```\n{HW_ERR}\n```", None
+    try:
+        res = HW.run(np.asarray(image), num_beams=1)
+    except Exception:
+        return f"Recognition error:\n\n```\n{traceback.format_exc()}\n```", None
+    # TrOCR reads whole lines -> no per-token columns; show reading-order text.
+    return _md_text(res.get("text", "")) or "_(no text found)_", res.get("overlay")
 
 
-def build_interface():
-    import gradio as gr  # lazy so the CLI works without gradio installed
+def run_multilingual(image, script, multicol):
+    if image is None:
+        return "Please upload an image.", None
+    if ML is None:
+        return f"Multilingual engine failed to load:\n\n```\n{ML_ERR}\n```", None
+    ML.word_sep = "" if script.startswith("CJK") else " "
+    try:
+        res = ML.run(np.asarray(image), column_split=bool(multicol))
+    except Exception:
+        return f"Recognition error:\n\n```\n{traceback.format_exc()}\n```", None
+    token_lines, line_height = _ml_token_lines(res)
+    md = layout_to_markdown(token_lines, res.get("text", ""), line_height=line_height)
+    return md or "_(no text found)_", res.get("overlay")
 
-    return gr.Interface(
-        fn=recognize,
-        inputs=[
-            gr.Image(type="numpy", label="Handwritten page"),
-            gr.Checkbox(value=True, label="Merge line segments before recognition"),
-            gr.Slider(1, 5, value=1, step=1, label="Beam width (slower, slightly more accurate)"),
-        ],
-        outputs=[
-            gr.Textbox(label="Recognized text", lines=12, show_copy_button=True),
-            gr.Image(label="Page + transcript (boxes numbered, text beside)"),
-        ],
-        title="Handwritten Text Recognition",
-        description="PaddleOCR PP-OCRv5 detection + deterministic reading-order "
-                    "reconstruction + TrOCR-large recognition.",
-        flagging_mode="never",
+
+# ---- UI ------------------------------------------------------------------
+with gr.Blocks(title="HI-RES OCR") as demo:
+    gr.Markdown(
+        "# HI-RES OCR\n"
+        "Detection → deterministic reading-order reconstruction "
+        "(deskew + column split + line clustering) → recognition.\n\n"
+        "**Pick the tab that matches your input** — handwriting vs printed text "
+        "(not language): printed English belongs in the multilingual tab."
     )
 
+    with gr.Tab("Handwritten (English)"):
+        gr.Markdown(
+            "TrOCR-large + HI-RES pipeline — **English only**. Runs on free CPU, "
+            "so a full page may take ~20–60s. Please be patient."
+        )
+        with gr.Row():
+            hw_in = gr.Image(type="numpy", label="Upload handwriting",
+                             sources=["upload", "clipboard"])
+            hw_overlay = gr.Image(label="Detected reading order", interactive=False)
+        gr.Markdown("**Recognized text**")
+        hw_out = gr.Markdown()
+        gr.Button("Run OCR", variant="primary").click(
+            run_handwritten, inputs=hw_in, outputs=[hw_out, hw_overlay]
+        )
 
-def run_cli(image_path: str, merge: bool, beams: int) -> None:
-    import cv2
-    import numpy as np
-
-    path = Path(image_path)
-    img_bgr = cv2.imdecode(np.fromfile(path, dtype=np.uint8), cv2.IMREAD_COLOR)
-    if img_bgr is None:
-        raise SystemExit(f"could not read image: {path}")
-    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-
-    result = engine.run(img_rgb, merge_segments=merge, num_beams=beams)
-
-    print(result["text"])
-    secs = result["seconds"]
-    print(f"\n--- skew {result['skew_deg']:.1f} deg | detect {secs['detect']:.2f}s "
-          f"| recognize {secs['recognize']:.2f}s ---")
-
-    out_txt = path.with_name(path.stem + "_ocr.txt")
-    out_panel = path.with_name(path.stem + "_panel.png")
-    out_txt.write_text(result["text"], encoding="utf-8")
-    ok, buf = cv2.imencode(".png", cv2.cvtColor(result["composite"], cv2.COLOR_RGB2BGR))
-    if ok:
-        buf.tofile(out_panel)
-    print(f"saved: {out_txt.name}, {out_panel.name}")
-
+    with gr.Tab("Printed / Multilingual"):
+        gr.Markdown(
+            "PP-OCRv6 — printed text in ~50 languages. Column-aligned content is "
+            "rendered as a table. Set the script toggle so word-spacing matches."
+        )
+        with gr.Row():
+            ml_in = gr.Image(type="numpy", label="Upload document",
+                             sources=["upload", "clipboard"])
+            ml_overlay = gr.Image(label="Detected reading order", interactive=False)
+        ml_script = gr.Radio(
+            ["Latin / Indic (use spaces)", "CJK (no spaces)"],
+            value="Latin / Indic (use spaces)", label="Script",
+        )
+        ml_multicol = gr.Checkbox(
+            value=False,
+            label="Multi-column layout (newspaper / 2-column) — leave OFF for "
+                  "forms, invoices and single-column pages",
+        )
+        gr.Markdown("**Recognized text / tables**")
+        ml_out = gr.Markdown()
+        gr.Button("Run OCR", variant="primary").click(
+            run_multilingual,
+            inputs=[ml_in, ml_script, ml_multicol],
+            outputs=[ml_out, ml_overlay],
+        )
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--image", help="run once on this image instead of launching the UI")
-    parser.add_argument("--no-merge", action="store_true",
-                        help="recognize each detected box separately")
-    parser.add_argument("--beams", type=int, default=1, help="beam width (default greedy)")
-    args = parser.parse_args()
-
-    if args.image:
-        run_cli(args.image, merge=not args.no_merge, beams=args.beams)
-    else:
-        build_interface().launch()
+    demo.queue().launch()
