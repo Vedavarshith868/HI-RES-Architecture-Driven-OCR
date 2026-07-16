@@ -38,6 +38,25 @@ silently drops low-confidence detections, which can look faster but loses text).
 controlled, same-model comparison HI-RES runs at ~0.86x stock's throughput — the accuracy
 gain here trades against speed, not for it.
 
+## CPU throughput — PP-OCRv5-mobile, same models on both sides
+
+Actual CPU runs (not GPU), 3 languages, 12 pages each, PP-OCRv5-mobile detection +
+recognition on both HI-RES and stock PaddleOCR. Source:
+[`results/multilingual_cpu_v5mobile.csv`](results/multilingual_cpu_v5mobile.csv).
+
+| language | HI-RES sec/img | stock sec/img | speedup | HI-RES CER | stock CER |
+|---|---|---|---|---|---|
+| ja | 16.20 | 39.95 | 2.47x | 32.8% | 37.9% |
+| ch | 12.12 | 37.96 | 3.13x | 35.4% | 36.6% |
+| es | 16.81 | 41.92 | 2.49x | 16.6% | 16.0% |
+| **average** | | | **~2.7x** | | |
+
+On CPU, with identical detection/recognition models on both sides, HI-RES runs
+**2.5–3.1x faster per page** (avg ~2.7x) — this is the batching-and-orchestration effect
+described in the project write-up. CER is better for ja/ch and roughly tied for es on
+this small sample (n=12/language); it isn't the accuracy claim — the multilingual PP-OCRv6
+comparison above (n=200) is.
+
 ## Skew robustness — the PaddleOCR PR evidence
 
 The proof behind [PaddlePaddle/PaddleOCR#18189](https://github.com/PaddlePaddle/PaddleOCR/pull/18189):
