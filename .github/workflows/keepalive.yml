@@ -1,9 +1,11 @@
 name: keep-hf-space-awake
-# Pings the HuggingFace Space so it never sits idle for 48h and sleeps.
-# IMPORTANT: this must live in a GitHub repo (GitHub Actions does not run on the
-# HF Space repo). Set a repo variable SPACE_URL to your Space's app URL, e.g.
-#   https://imperiusrex-hi-res-ocr.hf.space
+# Pings HuggingFace Spaces so they never sit idle for 48h and sleep.
+# IMPORTANT: this must live in a GitHub repo (GitHub Actions does not run on an
+# HF Space repo). Set repo variables to each Space's app URL, e.g.
+#   SPACE_URL  = https://imperiusrex-hi-res-ocr.hf.space
+#   SPACE_URL2 = https://imperiusrex-faor.hf.space
 # (Settings -> Secrets and variables -> Actions -> Variables -> New variable)
+# Add more by extending the `urls` list below and adding SPACE_URL3, etc.
 
 on:
   schedule:
@@ -14,12 +16,16 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping the Space
+      - name: Ping the Spaces
         run: |
-          url="${{ vars.SPACE_URL }}"
-          if [ -z "$url" ]; then
-            echo "SPACE_URL repo variable is not set; nothing to ping."
-            exit 0
+          urls=("${{ vars.SPACE_URL }}" "${{ vars.SPACE_URL2 }}")
+          any=0
+          for url in "${urls[@]}"; do
+            if [ -z "$url" ]; then continue; fi
+            any=1
+            code=$(curl -sS -L --max-time 120 -o /dev/null -w "%{http_code}" "$url" || echo "000")
+            echo "Pinged $url -> HTTP $code"
+          done
+          if [ "$any" -eq 0 ]; then
+            echo "No SPACE_URL/SPACE_URL2 repo variables set; nothing to ping."
           fi
-          code=$(curl -sS -L --max-time 120 -o /dev/null -w "%{http_code}" "$url" || echo "000")
-          echo "Pinged $url -> HTTP $code"
