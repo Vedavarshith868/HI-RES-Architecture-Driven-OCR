@@ -6,7 +6,7 @@ reconstruction** layer (deskew → column split → line clustering → left-to-
 is inserted between an off-the-shelf detector and recognizer, so the transcript
 reads in the correct order even on skewed, multi-column, or tabular pages.
 
-**[▶ Live demo](https://huggingface.co/spaces/imperiusrex/hi-res-ocr)**  ·  **[Open-source contribution → PaddleOCR PR #18189](https://github.com/PaddlePaddle/PaddleOCR/pull/18189)**
+**[▶ Live demo](https://huggingface.co/spaces/imperiusrex/hi-res-ocr)**  ·  **[Open-source contribution → PaddleOCR PR #18351](https://github.com/PaddlePaddle/PaddleOCR/pull/18351)**
 
 ![architecture](assets/pipeline.svg)
 
@@ -30,7 +30,7 @@ in the recognizer.
   while HI-RES stays flat (**~19× more robust**, 800 pages / 5 languages).
 - **Upstreamed** the reading-order fix to PaddleOCR (★84k): the stock
   `sorted_boxes` routine mis-orders text under mild skew — **+10–20% CER across
-  7 XFUND languages** — fixed in [PR #18189](https://github.com/PaddlePaddle/PaddleOCR/pull/18189)
+  7 XFUND languages** — fixed in [PR #18351](https://github.com/PaddlePaddle/PaddleOCR/pull/18351)
   (see [`paddleocr_pr/`](paddleocr_pr/)).
 
 ## Repository layout
@@ -39,7 +39,7 @@ in the recognizer.
 core/            shared engine — pipeline.py (reading-order geometry) + detector.py
 handwritten/     English handwriting pipeline (TrOCR)
 printed/         multilingual printed pipeline (PP-OCRv6) + table reconstruction
-paddleocr_pr/    the upstream fix contributed to PaddleOCR (PR #18189)
+paddleocr_pr/    the upstream fix contributed to PaddleOCR (PR #18351)
 evaluate.py      CER / WER evaluation harness
 app.py           Gradio demo (both pipelines, two tabs)
 tests/           pure-geometry + metrics unit tests (no model downloads)

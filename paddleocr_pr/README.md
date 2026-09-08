@@ -1,6 +1,6 @@
-# Upstream contribution to PaddleOCR — PR #18189
+# Upstream contribution to PaddleOCR — PR #18351
 
-**[PaddlePaddle/PaddleOCR#18189](https://github.com/PaddlePaddle/PaddleOCR/pull/18189)**
+**[PaddlePaddle/PaddleOCR#18351](https://github.com/PaddlePaddle/PaddleOCR/pull/18351)**
 
 While building HI-RES I found a reading-order bug in PaddleOCR (★84k): its
 `sorted_boxes` routine groups detected boxes into lines with a **hardcoded 10 px

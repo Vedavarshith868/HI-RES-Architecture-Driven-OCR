@@ -62,7 +62,7 @@ multilingual PP-OCRv6 comparison above (n=200), not by this throughput table.
 
 ## Skew robustness — the PaddleOCR PR evidence
 
-The proof behind [PaddlePaddle/PaddleOCR#18189](https://github.com/PaddlePaddle/PaddleOCR/pull/18189):
+The proof behind [PaddlePaddle/PaddleOCR#18351](https://github.com/PaddlePaddle/PaddleOCR/pull/18351):
 detection + recognition held identical, only the box-ordering function swapped. Full
 XFUND validation split, 7 languages, ~50 pages/language, skew 0/3/6/10°.
 Source: [`results/paddleocr_pr_skew_proof.csv`](results/paddleocr_pr_skew_proof.csv),
